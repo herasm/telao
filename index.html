@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Telão</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--s:#f2f3f5;--r:#e3e5e8;--tx:#060607;--mu:#5c5e66;--ac:#5865f2;--rd:#da373c;--gn:#23a55a;--ti:#e3e5e8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#313338;--s:#2b2d31;--r:#1e1f22;--tx:#f2f3f5;--mu:#949ba4;--ti:#1e1f22}}
+:root[data-theme="dark"]{--bg:#313338;--s:#2b2d31;--r:#1e1f22;--tx:#f2f3f5;--mu:#949ba4;--ti:#1e1f22}
+html{height:100%}
+body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit;background:var(--r);border:0;border-radius:6px;padding:7px 9px;min-width:0}
+#app{display:flex;height:100%}
+#rail{width:72px;background:var(--r);display:flex;flex-direction:column;align-items:center;padding-top:12px}
+.logo{width:48px;height:48px;border-radius:16px;background:var(--ac);display:grid;place-items:center;font-size:24px}
+#side{width:250px;background:var(--s);display:flex;flex-direction:column}
+#side h1{font-size:16px;margin:0;padding:14px 16px;border-bottom:1px solid var(--r)}
+.sec{font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase;padding:16px 16px 4px}
+#chs{display:flex;flex-direction:column;padding:0 8px;gap:2px}
+.ch{text-align:left;padding:8px 10px;border-radius:6px;color:var(--mu);white-space:nowrap}
+.ch:hover,.me button:hover{background:color-mix(in srgb,var(--tx) 10%,transparent)}
+.ch.on{background:color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx)}
+.join{display:flex;gap:6px;padding:10px 16px}
+.join input{flex:1}
+.join button{background:var(--ac);color:#fff;border-radius:6px;padding:0 12px}
+.me{margin-top:auto;display:flex;align-items:center;gap:4px;padding:8px;background:var(--r)}
+.me input{flex:1;width:0;background:none;font-weight:600}
+.me button{width:34px;height:34px;border-radius:8px;font-size:17px}
+.me .on{background:var(--gn)}.me .off{background:var(--rd)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--r);font-weight:700}
+#status{color:var(--mu);font-weight:400}
+#empty{padding:12px 16px 0;color:var(--mu)}
+#grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;padding:12px;overflow:auto;align-content:start}
+.tile{position:relative;aspect-ratio:16/9;background:var(--ti);border-radius:10px;overflow:hidden;cursor:pointer}
+.tile.big{grid-column:1/-1}
+.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;opacity:0}
+.tile.live video{opacity:1}
+.av{position:absolute;inset:0;margin:auto;width:25%;max-width:84px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:28px;font-weight:700;color:#fff}
+.tile.live .av{display:none}
+.nm{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.65);color:#fff;padding:2px 8px;border-radius:6px;font-size:13px}
+.tag{display:none;position:absolute;top:8px;left:8px;background:var(--rd);color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px}
+.tile.live .tag{display:block}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--r);padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%}
+#toast.on{opacity:1}
+@media(max-width:720px){#rail{display:none}#app{flex-direction:column}#side{width:auto}#chs{flex-direction:row;overflow-x:auto}}
+</style></head><body>
+<div id="app">
+<nav id="rail"><div class="logo">📺</div></nav>
+<aside id="side">
+<h1>Telão</h1>
+<div class="sec">Canais de voz</div><div id="chs"></div>
+<div class="join"><input id="code" placeholder="código de sala" maxlength="40" aria-label="Código da sala"><button id="go">Entrar</button></div>
+<div class="me"><input id="nick" maxlength="20" aria-label="Seu apelido"><button id="bmic" title="Microfone" aria-label="Microfone">🎤</button><button id="bshare" title="Compartilhar tela" aria-label="Compartilhar tela">🖥️</button><button id="bleave" title="Sair do canal" aria-label="Sair do canal">📞</button></div>
+</aside>
+<main>
+<header><span id="title">Escolha um canal de voz</span><span id="status"></span></header>
+<div id="empty">Escolha um canal de voz ao lado para entrar.</div>
+<section id="grid"></section>
+</main>
+</div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),CH=[['geral','Geral'],['filmes','Filmes'],['jogos','Jogos']];
+const ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+let ws=null,rn='',me='',plist=[],screen=null,micT=null;const peers={},tiles={};
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const nick=$('#nick');nick.value=ls.get('nick')||'Amigo'+(100+Math.floor(Math.random()*900));
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),4500)}
+function drawCh(){$('#chs').replaceChildren(...CH.map(([n,l])=>{const b=document.createElement('button');b.className='ch'+(n===rn?' on':'');b.textContent='🔊 '+l;b.onclick=()=>join(n);return b}))}
+function upd(){$('#bshare').className=screen?'on':'';$('#bmic').className=micT?(micT.enabled?'on':'off'):''}
+function wsend(o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))}
+function pres(){wsend({t:'pres',p:{name:nick.value.trim()||'Amigo',live:!!screen,mic:micT?(micT.enabled?1:2):0}})}
+function send(to,d){wsend({t:'sig',to,d})}
+function sendD(to,d){send(to,{k:'d',t:d.type,s:d.sdp})}
+function fill(p){const v=screen?screen.getVideoTracks()[0]:null,a=screen?screen.getAudioTracks()[0]:null;p.vs.sender.replaceTrack(v||null).catch(()=>{});p.ss.sender.replaceTrack(a||null).catch(()=>{});p.as.sender.replaceTrack(micT).catch(()=>{})}
+function mk(id){
+  const pc=new RTCPeerConnection(ICE),T=k=>pc.addTransceiver(k,{direction:'sendrecv'});
+  const p=peers[id]={id,pc,st:new MediaStream(),polite:me>id,making:false,ign:false,q:[],at:Date.now(),vs:T('video'),as:T('audio'),ss:T('audio'),t:setTimeout(()=>retry(id),20000)};
+  pc.onicecandidate=e=>e.candidate&&send(id,{k:'c',c:e.candidate.toJSON()});
+  pc.onnegotiationneeded=async()=>{try{p.making=true;await pc.setLocalDescription();sendD(id,pc.localDescription)}catch(e){console.warn(e)}finally{p.making=false}};
+  pc.ontrack=e=>p.st.addTrack(e.track);
+  pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected')clearTimeout(p.t);if(pc.connectionState==='failed')retry(id)};
+  fill(p);return p;
+}
+function drop(id){const p=peers[id];if(!p)return;clearTimeout(p.t);p.pc.close();delete peers[id]}
+function retry(id){if(peers[id]){drop(id);sync()}}
+async function onSig(id,d){
+  if(!d)return;const p=peers[id]||mk(id),pc=p.pc;
+  try{
+    if(d.k==='d'){
+      const coll=d.t==='offer'&&(p.making||pc.signalingState!=='stable');
+      p.ign=!p.polite&&coll;if(p.ign)return;
+      await pc.setRemoteDescription({type:d.t,sdp:d.s});
+      p.q.splice(0).forEach(c=>pc.addIceCandidate(c).catch(()=>{}));
+      if(d.t==='offer'){await pc.setLocalDescription();sendD(id,pc.localDescription)}
+    }else if(d.k==='c'){
+      if(pc.remoteDescription)await pc.addIceCandidate(d.c).catch(e=>{if(!p.ign)console.warn(e)});else p.q.push(d.c);
+    }
+  }catch(e){console.warn(e)}
+}
+function tile(id){
+  if(tiles[id])return tiles[id];
+  const t=document.createElement('div');t.className='tile';
+  t.innerHTML='<video autoplay playsinline></video><div class="av"></div><div class="nm"></div><div class="tag">AO VIVO</div>';
+  t.onclick=()=>t.classList.toggle('big');
+  t.ondblclick=()=>document.fullscreenElement?document.exitFullscreen():t.requestFullscreen&&t.requestFullscreen().catch(()=>{});
+  $('#grid').append(t);return tiles[id]=t;
+}
+function render(ps){
+  const seen=new Set();
+  ps.forEach(p=>{
+    const id=p.sameTab?'me':p.peer,pr=p.presence||{},t=tile(id);seen.add(id);
+    const nm=String(pr.name||'Amigo').slice(0,20),ic=pr.mic===1?'🎤 ':pr.mic===2?'🔇 ':'';
+    t.querySelector('.nm').textContent=ic+nm+(p.sameTab?' (você)':'');
+    const av=t.querySelector('.av');av.textContent=nm[0].toUpperCase();
+    av.style.background='hsl('+Math.abs([...p.peer].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7))%360+' 50% 42%)';
+    t.classList.toggle('live',!!pr.live);
+    const v=t.querySelector('video'),s=(p.sameTab?screen:peers[id]&&peers[id].st)||null;
+    v.muted=p.sameTab;if(v.srcObject!==s)v.srcObject=s;
+  });
+  Object.keys(tiles).forEach(k=>{if(!seen.has(k)){tiles[k].remove();delete tiles[k]}});
+  const e=$('#empty');e.textContent=ps.length<2?'Você está sozinho aqui. Mande o link do Telão para os amigos entrarem neste canal.':'';e.hidden=ps.length>=2;
+}
+function sync(){
+  if(!rn)return;const ps=plist;if(!ps.some(p=>p.sameTab))return;
+  const ids=new Set(ps.filter(p=>!p.sameTab).map(p=>p.peer));
+  ids.forEach(id=>peers[id]||mk(id));
+  Object.keys(peers).forEach(id=>{if(!ids.has(id)&&Date.now()-peers[id].at>3000)drop(id)});
+  render(ps);
+}
+function leave(){
+  Object.keys(peers).forEach(drop);
+  if(screen)screen.getTracks().forEach(t=>t.stop());screen=null;if(micT)micT.stop();micT=null;
+  const w=ws;ws=null;rn='';me='';plist=[];if(w)w.close();
+  Object.keys(tiles).forEach(k=>{tiles[k].remove();delete tiles[k]});
+  $('#title').textContent='Escolha um canal de voz';
+  const e=$('#empty');e.textContent='Escolha um canal de voz ao lado para entrar.';e.hidden=false;drawCh();upd();
+}
+function join(n){
+  if(rn===n)return;
+  leave();
+  let w;try{w=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host)}catch(e){return toast('Não consegui conectar ao servidor.')}
+  ws=w;rn=n;$('#title').textContent='🔊 '+(CH.find(c=>c[0]===n)||[0,n])[1];drawCh();
+  w.onopen=()=>wsend({t:'join',room:n});
+  w.onmessage=ev=>{
+    let m;try{m=JSON.parse(ev.data)}catch(e){return}
+    if(m.t==='hello'){me=m.id;pres()}
+    else if(m.t==='peers'){plist=m.peers.map(x=>({peer:x.id,sameTab:x.id===me,presence:x.p||{}}));sync()}
+    else if(m.t==='sig')onSig(m.from,m.d);
+    else if(m.t==='full'){w.quiet=1;toast('Essa sala está cheia (máximo de 12 pessoas).')}
+  };
+  w.onclose=()=>{if(ws===w){if(!w.quiet)toast('A conexão com o servidor foi encerrada.');leave()}};
+}
+function stopShare(){
+  if(!screen)return;screen.getTracks().forEach(t=>t.stop());screen=null;
+  Object.values(peers).forEach(fill);upd();if(rn){pres();render(plist)}
+}
+async function share(){
+  if(screen)return stopShare();
+  if(!rn)return toast('Entre em um canal de voz primeiro.');
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia)return toast('Este navegador não consegue compartilhar a tela. Use um computador.');
+  try{screen=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true})}
+  catch(e){screen=null;return toast('Não foi possível compartilhar ('+e.name+'): '+(e.message||'sem detalhes'))}
+  screen.getVideoTracks()[0].onended=stopShare;
+  Object.values(peers).forEach(fill);upd();pres();render(plist);
+}
+async function mic(){
+  if(!rn)return toast('Entre em um canal de voz primeiro.');
+  if(!micT){
+    try{const s=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});micT=s.getAudioTracks()[0];Object.values(peers).forEach(fill)}
+    catch(e){return toast('Não consegui acessar o microfone.')}
+  }else micT.enabled=!micT.enabled;
+  upd();pres();
+}
+drawCh();upd();
+$('#go').onclick=()=>{const c=$('#code').value.toLowerCase().replace(/[^a-z0-9_.-]+/g,'-').replace(/^[^a-z0-9]+/,'').slice(0,40);if(c)join(c)};
+$('#code').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+nick.onchange=()=>{ls.set('nick',nick.value);pres()};
+$('#bmic').onclick=mic;$('#bshare').onclick=share;$('#bleave').onclick=leave;
+</script></body></html>
