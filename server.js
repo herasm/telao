@@ -46,7 +46,7 @@ function touch(coll, id, data) {
 
 /* ---------- IA da Capri (a chave fica só aqui, no servidor) ---------- */
 const GKEY = process.env.GEMINI_API_KEY || '';
-const GMODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const GMODEL = process.env.GEMINI_MODEL || 'models/gemini-3.8-flash';
 const hits = new Map();   // ip -> horários das últimas chamadas
 let gHits = [];
 function limited(ip) {
